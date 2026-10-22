@@ -1,0 +1,1 @@
+pip install numpy pandas pandas-ta plotly requests yfinance

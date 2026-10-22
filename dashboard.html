@@ -1,0 +1,57 @@
+
+    <!DOCTYPE html>
+    <html lang="zh-HK">
+    <head>
+        <meta charset="UTF-8">
+        <title>量化監控儀表板 (15m)</title>
+        <style>
+            body { background-color: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .header h1 { margin: 0 0 10px 0; color: #00e676; }
+            .header p { margin: 0; color: #aaa; font-size: 14px; }
+            .grid-container {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(700px, 1fr));
+                gap: 20px;
+            }
+            iframe {
+                width: 100%;
+                height: 1050px;
+                border: 1px solid #333;
+                border-radius: 8px;
+                background-color: #000;
+            }
+        </style>
+        <script>
+            const refreshInterval = 300000; 
+            setInterval(function() {
+                const iframes = document.querySelectorAll('iframe');
+                iframes.forEach(iframe => {
+                    const currentSrc = iframe.src.split('?')[0];
+                    iframe.src = currentSrc + '?t=' + new Date().getTime();
+                });
+                document.getElementById('last-update').innerText = '最後更新時間: ' + new Date().toLocaleTimeString();
+            }, refreshInterval);
+        </script>
+    </head>
+    <body>
+        <div class="header">
+            <h1>📈 港股量化監控儀表板 (15m 線 + 成交量)</h1>
+            <p id="last-update">等待首次更新...</p>
+            <p style="margin-top:5px; font-size:12px; color:#666;">(系統將每 300 秒自動在背景刷新圖表)</p>
+        </div>
+        <div class="grid-container">
+                <div><iframe src="0288.HK_interactive_15m.html"></iframe></div>
+            <div><iframe src="0303.HK_interactive_15m.html"></iframe></div>
+            <div><iframe src="0006.HK_interactive_15m.html"></iframe></div>
+            <div><iframe src="1211.HK_interactive_15m.html"></iframe></div>
+            <div><iframe src="3110.HK_interactive_15m.html"></iframe></div>
+            <div><iframe src="0700.HK_interactive_15m.html"></iframe></div>
+
+        </div>
+        <script>
+            document.getElementById('last-update').innerText = '最後更新時間: ' + new Date().toLocaleTimeString();
+        </script>
+    </body>
+    </html>
+    
