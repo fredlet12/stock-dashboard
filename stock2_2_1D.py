@@ -340,7 +340,7 @@ def main():
                         f"訊號: {current_signal}"
                     )
                     print(f"\n{alert_icon}: {ticker}")
-                    if HAS_WINSOUND: winsound.Beep(1000, 1000)
+                    if HAS_WINSOUND: winsound.Beep(0, 0)
                     send_telegram_message(msg)
                     if chart_filename: send_telegram_document(chart_filename, f"{ticker} 分析圖表")
 

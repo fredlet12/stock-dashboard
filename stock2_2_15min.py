@@ -20,7 +20,7 @@ except ImportError:
 # ==================== 設定區 ====================
 TICKERS = ["0288.HK", "0303.HK", "0006.HK", "1211.HK", "3110.HK", "0700.HK"]
 REFRESH_INTERVAL = 300  
-CSV_LOG_FILE = "realtime_stock_cbbc_signals_15m.csv"
+CSV_LOG_FILE = "realtime_stock_cbbc_signals_multi_tf.csv"
 SAVE_INTERACTIVE_CHARTS = True  
 
 # Telegram Bot 設定 (請替換為你的 Token)
@@ -32,8 +32,8 @@ TELEGRAM_CHAT_ID = "7791139302"
 CURRENT_POSITIONS = {
     "3110.HK": {"entry_price": 31.16, "shares": 1000},
     "0303.HK": {"entry_price": 50.38, "shares": 4000},
-    "1211.HK": {"entry_price": 79.41, "shares":500},
-    "0288.HK": {"entry_price": 7.25, "shares":4000},
+    "1211.HK": {"entry_price": 79.41, "shares": 500},
+    "0288.HK": {"entry_price": 7.25, "shares": 4000},
 }
 # ================================================
 
@@ -66,29 +66,23 @@ def send_telegram_document(file_path, caption=""):
     except Exception as e: print(f"⚠️ Telegram 檔案發送逾時或失敗: {e}")
 
 def generate_dashboard(tickers):
+    """建立雙圖表 (1D & 15m) 並排的 HTML 儀表板"""
     html_content = f"""
     <!DOCTYPE html>
     <html lang="zh-HK">
     <head>
         <meta charset="UTF-8">
-        <title>量化監控儀表板 (15m)</title>
+        <title>多時間框架量化儀表板 (1D + 15m)</title>
         <style>
             body {{ background-color: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }}
             .header {{ text-align: center; margin-bottom: 20px; }}
             .header h1 {{ margin: 0 0 10px 0; color: #00e676; }}
             .header p {{ margin: 0; color: #aaa; font-size: 14px; }}
-            .grid-container {{
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(700px, 1fr));
-                gap: 20px;
-            }}
-            iframe {{
-                width: 100%;
-                height: 1050px;
-                border: 1px solid #333;
-                border-radius: 8px;
-                background-color: #000;
-            }}
+            .stock-section {{ margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
+            .stock-title {{ font-size: 24px; font-weight: bold; color: #00bcff; margin-bottom: 15px; border-left: 5px solid #00e676; padding-left: 10px; }}
+            .chart-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
+            @media (max-width: 1400px) {{ .chart-row {{ grid-template-columns: 1fr; }} }}
+            iframe {{ width: 100%; height: 900px; border: 1px solid #333; border-radius: 8px; background-color: #000; }}
         </style>
         <script>
             const refreshInterval = {REFRESH_INTERVAL * 1000}; 
@@ -104,22 +98,27 @@ def generate_dashboard(tickers):
     </head>
     <body>
         <div class="header">
-            <h1>📈 港股量化監控儀表板 (15m 線 + 成交量)</h1>
+            <h1>📈 港股多時間框架量化監控 (1D 1年 + 15m 1週)</h1>
             <p id="last-update">等待首次更新...</p>
             <p style="margin-top:5px; font-size:12px; color:#666;">(系統將每 {REFRESH_INTERVAL} 秒自動在背景刷新圖表)</p>
         </div>
-        <div class="grid-container">
     """
     
     for ticker in tickers:
-        filename = f"{ticker}_interactive_15m.html"
-        html_content += f'            <div><iframe src="{filename}"></iframe></div>\n'
+        file_1d = f"{ticker}_interactive_1d.html"
+        file_15m = f"{ticker}_interactive_15m.html"
+        html_content += f"""
+        <div class="stock-section">
+            <div class="stock-title">{ticker}</div>
+            <div class="chart-row">
+                <div><iframe src="{file_1d}"></iframe></div>
+                <div><iframe src="{file_15m}"></iframe></div>
+            </div>
+        </div>
+        """
 
     html_content += """
-        </div>
-        <script>
-            document.getElementById('last-update').innerText = '最後更新時間: ' + new Date().toLocaleTimeString();
-        </script>
+        <script>document.getElementById('last-update').innerText = '最後更新時間: ' + new Date().toLocaleTimeString();</script>
     </body>
     </html>
     """
@@ -128,20 +127,29 @@ def generate_dashboard(tickers):
         f.write(html_content)
     print("✅ 已生成綜合儀表板: dashboard.html")
 
-def save_interactive_chart(ticker, df):
+def save_interactive_chart(ticker, df, timeframe="15m"):
     chart_df = df.copy()
-    chart_df['Datetime_Str'] = chart_df.index.strftime('%Y-%m-%d %H:%M')
-    
-    # 擴增為 5 個副圖
+    if timeframe == "1d":
+        chart_df['Datetime_Str'] = chart_df.index.strftime('%Y-%m-%d')
+        tf_label = "日線 (1D - 1年)"
+    else:
+        chart_df['Datetime_Str'] = chart_df.index.strftime('%Y-%m-%d %H:%M')
+        tf_label = "15分鐘線 (15m - 1週)"
+        
     fig = make_subplots(
         rows=5, cols=1, shared_xaxes=True, vertical_spacing=0.03,
         row_heights=[0.40, 0.15, 0.15, 0.15, 0.15],
-        subplot_titles=(f"📈 {ticker} 15分鐘線圖 (Scale-out 現倉監控)", "成交量 (Volume)", "RSI (14) 動能指標", "KD 隨機指標", "MACD (12, 26, 9)"),
+        subplot_titles=(f"📈 {ticker} {tf_label}圖 (Scale-out 現倉監控)", "成交量 (Volume)", "RSI (14) 動能指標", "KD 隨機指標", "MACD (12, 26, 9)"),
     )
 
-    # Row 1: 陰陽燭與均線
-    fig.add_trace(go.Candlestick(x=chart_df['Datetime_Str'], open=chart_df["Open"], high=chart_df["High"], low=chart_df["Low"], close=chart_df["Close"], name="15m K線", increasing_line_color="#00e676", decreasing_line_color="#ff334b"), row=1, col=1)
-    fig.add_trace(go.Scatter(x=chart_df['Datetime_Str'], y=chart_df["SMA_20"], name="20T均線", line=dict(color="#00bcff", width=1.5)), row=1, col=1)
+    # Row 1: 陰陽燭與保力加通道、均線
+    fig.add_trace(go.Candlestick(x=chart_df['Datetime_Str'], open=chart_df["Open"], high=chart_df["High"], low=chart_df["Low"], close=chart_df["Close"], name=f"{tf_label} K線", increasing_line_color="#00e676", decreasing_line_color="#ff334b"), row=1, col=1)
+    
+    if "BB_Upper" in chart_df.columns and "BB_Lower" in chart_df.columns:
+        fig.add_trace(go.Scatter(x=chart_df['Datetime_Str'], y=chart_df["BB_Upper"], name="保力加通道(上軌)", line=dict(color="rgba(255, 255, 255, 0.3)", width=1, dash="dot")), row=1, col=1)
+        fig.add_trace(go.Scatter(x=chart_df['Datetime_Str'], y=chart_df["BB_Lower"], name="保力加通道(下軌)", line=dict(color="rgba(255, 255, 255, 0.3)", width=1, dash="dot"), fill='tonexty', fillcolor="rgba(255, 255, 255, 0.05)"), row=1, col=1)
+
+    fig.add_trace(go.Scatter(x=chart_df['Datetime_Str'], y=chart_df["SMA_20"], name="20T均線(中軌)", line=dict(color="#00bcff", width=1.5)), row=1, col=1)
     fig.add_trace(go.Scatter(x=chart_df['Datetime_Str'], y=chart_df["SMA_200"], name="200T均線", line=dict(color="#ffaa00", width=1.5)), row=1, col=1)
     fig.add_trace(go.Scatter(x=chart_df['Datetime_Str'], y=chart_df["Support_20L"], name="20T支撐位", line=dict(color="#ff00ff", width=1, dash="dash")), row=1, col=1)
 
@@ -183,19 +191,16 @@ def save_interactive_chart(ticker, df):
     fig.update_xaxes(type='category', showticklabels=False, row=4, col=1)
     fig.update_xaxes(type='category', showticklabels=True, row=5, col=1, nticks=10) 
 
-    # 調整圖表高度至 1050 確保 5 行顯示舒適
-    fig.update_layout(template="plotly_dark", height=1050, showlegend=True, xaxis_rangeslider_visible=False, hovermode="x unified")
-    filename = f"{ticker}_interactive_15m.html"
+    fig.update_layout(template="plotly_dark", height=900, showlegend=True, xaxis_rangeslider_visible=False, hovermode="x unified")
+    filename = f"{ticker}_interactive_{timeframe}.html"
     fig.write_html(filename, include_plotlyjs="cdn")
     return filename
 
-def analyze_stock(ticker):
-    symbol_upper = ticker.upper()
-    cfg = STOCK_CONFIGS.get(symbol_upper, DEFAULT_CONFIG)
-
-    df = yf.download(ticker, period="60d", interval="15m", progress=False)
-    if df.empty: return None, None
+def process_dataframe(df, cfg):
+    """將技術指標與狀態機運算模組化，支援 1D 與 15m 資料"""
+    if df.empty: return None
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+    if "Volume" not in df.columns: df["Volume"] = 0
 
     df["SMA_20"] = ta.sma(df["Close"], length=20)
     df["SMA_200"] = ta.sma(df["Close"], length=200)
@@ -204,22 +209,32 @@ def analyze_stock(ticker):
     df["ATR_14"] = ta.atr(df["High"], df["Low"], df["Close"], length=14)
     df["Support_20L"] = df["Low"].rolling(window=20).min()
 
+    # 計算保力加通道 (20週期, 2標準差) - 動態欄位識別
+    bbands = ta.bbands(df["Close"], length=20, std=2)
+    if bbands is not None and not bbands.empty:
+        bbu_col = [c for c in bbands.columns if c.startswith("BBU")][0]
+        bbl_col = [c for c in bbands.columns if c.startswith("BBL")][0]
+        df["BB_Upper"] = bbands[bbu_col]
+        df["BB_Lower"] = bbands[bbl_col]
+    else:
+        df["BB_Upper"] = np.nan
+        df["BB_Lower"] = np.nan
+
     stoch = ta.stoch(df["High"], df["Low"], df["Close"], k=14, d=3, smooth_k=3)
     if stoch is not None:
         df["K"] = stoch["STOCHk_14_3_3"]
         df["D"] = stoch["STOCHd_14_3_3"]
-    else: return None, None
+    else: return None
 
     macd = ta.macd(df["Close"], fast=12, slow=26, signal=9)
     if macd is not None:
         df["MACD"] = macd["MACD_12_26_9"]
         df["MACD_Signal"] = macd["MACDs_12_26_9"]
         df["MACD_Hist"] = macd["MACDh_12_26_9"]
-    else: return None, None
+    else: return None
 
     df.dropna(inplace=True)
-    df = df.tail(400)
-    if len(df) < 2: return None, None
+    if len(df) < 2: return None
 
     df["MA_Death_Cross"] = (df["SMA_20"] < df["SMA_200"]) & (df["SMA_20"].shift(1) >= df["SMA_200"].shift(1))
     df["MACD_Death_Cross"] = (df["MACD"] < df["MACD_Signal"]) & (df["MACD"].shift(1) >= df["MACD_Signal"].shift(1))
@@ -227,12 +242,7 @@ def analyze_stock(ticker):
     df["KD_Golden_Cross"] = (df["K"] > df["D"]) & (df["K"].shift(1) <= df["D"].shift(1))
 
     scores, signals = [], []
-
-    STATE_IDLE = 0            
-    STATE_SETUP_ACTIVE = 1    
-    STATE_FULL_POS = 2        
-    STATE_HALF_POS = 3        
-
+    STATE_IDLE, STATE_SETUP_ACTIVE, STATE_FULL_POS, STATE_HALF_POS = 0, 1, 2, 3
     current_state = STATE_IDLE
     bars_since_setup = 0
     MAX_SETUP_WINDOW = 5
@@ -296,13 +306,37 @@ def analyze_stock(ticker):
 
     df["Score"] = scores
     df["Signal"] = signals
+    return df
 
-    latest = df.iloc[-1]
-    current_price = float(latest["Close"])
-    current_volume = int(latest.get("Volume", 0))
-    atr_val = float(latest["ATR_14"])
-    support_20l = float(latest["Support_20L"])
-    ta_signal = latest["Signal"]
+def analyze_stock(ticker):
+    symbol_upper = ticker.upper()
+    cfg = STOCK_CONFIGS.get(symbol_upper, DEFAULT_CONFIG)
+
+    # 1D 抓取 2 年 (2y) 資料，預留 200 天給 SMA_200 計算；15m 下載 1 個月 (1mo)
+    df_1d_raw = yf.download(ticker, period="2y", interval="1d", progress=False)
+    df_15m_raw = yf.download(ticker, period="1mo", interval="15m", progress=False)
+
+    df_1d = process_dataframe(df_1d_raw, cfg)
+    df_15m = process_dataframe(df_15m_raw, cfg)
+
+    if df_15m is None or df_1d is None: return None, None, None
+
+    # 1D 截取最新 250 根 K 線 (完整 1 年交易日)
+    df_1d = df_1d.tail(250)
+    # 15m 截取最新 110 根 K 線 (約 1 星期交易日)
+    df_15m = df_15m.tail(110)
+
+    # 取最後一筆 15m 作為主資料
+    latest_15m = df_15m.iloc[-1]
+    latest_1d = df_1d.iloc[-1]
+    
+    current_price = float(latest_15m["Close"])
+    current_volume = int(latest_15m.get("Volume", 0))
+    atr_val = float(latest_15m["ATR_14"])
+    support_20l = float(latest_15m["Support_20L"])
+    
+    ta_signal_15m = latest_15m["Signal"]
+    ta_signal_1d = latest_1d["Signal"]
 
     pos = CURRENT_POSITIONS.get(symbol_upper)
     if pos:
@@ -320,70 +354,70 @@ def analyze_stock(ticker):
         elif current_price >= est_tp:
             final_signal = "💰 現倉觸發目標止盈 (TAKE PROFIT)"
         else:
-            final_signal = f"🛡️ 持有現倉 (TA: {ta_signal.split(' ')[0]})"
+            final_signal = f"🛡️ 持有現倉 (TA: {ta_signal_15m.split(' ')[0]})"
     else:
         entry_p = "-"
         pnl_str = "-"
         est_sl = round(current_price - (cfg["atr_mult"] * atr_val), 2)
         est_tp = round(current_price + (3.0 * atr_val), 2)
-        final_signal = ta_signal
+        final_signal = ta_signal_15m
 
     estimated_bull_call = round(support_20l * 0.99, 2)
     distance_to_call_pct = round(((current_price - estimated_bull_call) / current_price) * 100, 2)
 
-    if distance_to_call_pct < 2.0:
-        cbbc_risk = "🔥 極高風險"
-    elif distance_to_call_pct <= 5.0:
-        cbbc_risk = "⚠️ 中等風險"
-    else:
-        cbbc_risk = "🛡️ 低風險"
+    if distance_to_call_pct < 2.0: cbbc_risk = "🔥 極高風險"
+    elif distance_to_call_pct <= 5.0: cbbc_risk = "⚠️ 中等風險"
+    else: cbbc_risk = "🛡️ 低風險"
 
     cross_status = "無"
-    if latest["MA_Death_Cross"]: cross_status = "💀 MA死叉"
-    elif latest["MACD_Death_Cross"]: cross_status = "📉 MACD死叉"
-    elif latest["MACD_Golden_Cross"]: cross_status = "📊 MACD金叉"
-    elif latest["KD_Golden_Cross"]: cross_status = "✨ KD金叉"
+    if latest_15m["MA_Death_Cross"]: cross_status = "💀 MA死叉"
+    elif latest_15m["MACD_Death_Cross"]: cross_status = "📉 MACD死叉"
+    elif latest_15m["MACD_Golden_Cross"]: cross_status = "📊 MACD金叉"
+    elif latest_15m["KD_Golden_Cross"]: cross_status = "✨ KD金叉"
 
     res_dict = {
         "時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "股票代碼": symbol_upper,
         "最新現價": round(current_price, 2),
+        "1D訊號(大趨勢)": ta_signal_1d.split(' (')[0],
+        "15m訊號(精確點)": final_signal,
         "成交量": f"{current_volume:,}",
         "持倉成本": entry_p,
         "盈虧(%)": pnl_str,
-        "評分(Score)": latest["Score"],
+        "評分(15m)": latest_15m["Score"],
         "估算止損(SL)": est_sl,
         "估算止盈(TP)": est_tp,
-        "RSI(14)": round(float(latest["RSI_14"]), 2),
-        "MACD": round(float(latest["MACD"]), 2),
-        "交叉狀態": cross_status,
-        "訊號": final_signal,
+        "15m RSI": round(float(latest_15m["RSI_14"]), 2),
+        "15m 交叉": cross_status,
         "距收回價(%)": f"{distance_to_call_pct}%",
         "CBBC風險": cbbc_risk
     }
-    return res_dict, df
+    return res_dict, df_15m, df_1d
 
 def main():
-    print("=" * 120)
-    print("🚀 15 分鐘線 (15m) 現倉盈虧、成交量與 CBBC 風控系統 啟動中...")
+    print("=" * 130)
+    print("🚀 多時間框架 (1D 1年 + 15m 1週) 現倉盈虧與 CBBC 風控系統 啟動中...")
     print(f"📌 監控目標: {', '.join(TICKERS)}")
-    print("=" * 120 + "\n")
+    print("=" * 130 + "\n")
 
     if SAVE_INTERACTIVE_CHARTS:
         generate_dashboard(TICKERS)
 
-    send_telegram_message(f"🚀 *15m 監控系統 (含成交量) 已成功啟動*\n監控目標: {', '.join(TICKERS)}")
+    send_telegram_message(f"🚀 *1D+15m 雙重監控系統已成功啟動*\n監控目標: {', '.join(TICKERS)}")
 
     while True:
         try:
             current_results = []
             for ticker in TICKERS:
-                res, df_data = analyze_stock(ticker)
+                res, df_15m, df_1d = analyze_stock(ticker)
                 if not res: continue
                 current_results.append(res)
                 
-                chart_filename = save_interactive_chart(ticker, df_data) if SAVE_INTERACTIVE_CHARTS else None
-                current_signal = res["訊號"]
+                if SAVE_INTERACTIVE_CHARTS:
+                    chart_15m = save_interactive_chart(ticker, df_15m, "15m")
+                    chart_1d = save_interactive_chart(ticker, df_1d, "1d")
+                
+                current_signal = res["15m訊號(精確點)"]
                 prev_signal = previous_signals.get(ticker, "HOLD")
                 cbbc_alert = res["CBBC風險"]
 
@@ -402,27 +436,27 @@ def main():
                     else: alert_icon = "⚠️ 狀態更新"
 
                     msg = (
-                        f"*{alert_icon} - {ticker} (15m)*\n"
+                        f"*{alert_icon} - {ticker}*\n"
+                        f"📊 1D 日線大趨勢: {res['1D訊號(大趨勢)']}\n"
+                        f"⏱️ 15m 觸發訊號: {current_signal}\n"
                         f"現價: ${res['最新現價']} | 成交量: {res['成交量']}\n"
                         f"持倉成本: {res['持倉成本']} ({res['盈虧(%)']})\n"
-                        f"評分: {res['評分(Score)']} | 交叉: {res['交叉狀態']}\n"
                         f"SL: ${res['估算止損(SL)']} | TP: ${res['估算止盈(TP)']}\n"
-                        f"CBBC距收回價: {res['距收回價(%)']} ({res['CBBC風險']})\n"
-                        f"訊號: {current_signal}"
+                        f"CBBC距收回價: {res['距收回價(%)']} ({res['CBBC風險']})"
                     )
                     print(f"\n{alert_icon}: {ticker}")
-                    if HAS_WINSOUND: winsound.Beep(1000, 1000)
+                    if HAS_WINSOUND: winsound.Beep(1000, 0)
                     send_telegram_message(msg)
-                    if chart_filename: send_telegram_document(chart_filename, f"{ticker} 15m 分析圖表")
+                    if SAVE_INTERACTIVE_CHARTS: 
+                        send_telegram_document(chart_15m, f"{ticker} 15m 分析圖")
 
                 previous_signals[ticker] = current_signal
 
             if current_results:
                 res_df = pd.DataFrame(current_results)
                 cols_to_show = [
-                    "股票代碼", "最新現價", "成交量", "持倉成本", "盈虧(%)", "評分(Score)", 
-                    "估算止損(SL)", "估算止盈(TP)", "RSI(14)", "MACD", 
-                    "交叉狀態", "訊號", "距收回價(%)", "CBBC風險"
+                    "股票代碼", "最新現價", "1D訊號(大趨勢)", "15m訊號(精確點)", "成交量", "持倉成本", "盈虧(%)", 
+                    "評分(15m)", "估算止損(SL)", "估算止盈(TP)", "15m RSI", "15m 交叉", "距收回價(%)", "CBBC風險"
                 ]
                 print(res_df[cols_to_show].to_string(index=False))
                 
@@ -435,7 +469,6 @@ def main():
                     encoding="utf-8-sig"
                 )
             
-            # 自動推送到 GitHub Pages (供 Google Sites 抓取)
             try:
                 print("🔄 正在將最新圖表同步至 GitHub Pages...")
                 subprocess.run(["git", "add", "*.html", "*.csv"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -450,7 +483,7 @@ def main():
 
         except KeyboardInterrupt:
             print("\n👋 監控程式已手動停止。")
-            send_telegram_message("🛑 *15m 監控系統已手動停止*")
+            send_telegram_message("🛑 *多時間框架監控系統已手動停止*")
             break
         except Exception as e:
             print(f"⚠️ 異常: {e}")
