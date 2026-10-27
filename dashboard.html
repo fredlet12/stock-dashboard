@@ -8,6 +8,7 @@
             body { background-color: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
             .header { text-align: center; margin-bottom: 20px; }
             .header h1 { margin: 0 0 10px 0; color: #00e676; }
+            .hsi-banner { display: inline-block; background-color: #222; border: 1px solid #444; border-radius: 6px; padding: 8px 16px; margin-bottom: 10px; font-size: 16px; font-weight: bold; color: #ffeb3b; }
             .header p { margin: 0; color: #aaa; font-size: 14px; }
             .stock-section { margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px; }
             .stock-title { font-size: 24px; font-weight: bold; color: #00bcff; margin-bottom: 15px; border-left: 5px solid #00e676; padding-left: 10px; }
@@ -30,6 +31,7 @@
     <body>
         <div class="header">
             <h1>📈 港股多時間框架量化監控 (1D 1年 + 15m 1週)</h1>
+            <div class="hsi-banner">大市風向標：🔴 空頭跌市 (恆指: 23,141 | 20MA: 23,964 | ADX: 26.4)</div>
             <p id="last-update">等待首次更新...</p>
             <p style="margin-top:5px; font-size:12px; color:#666;">(系統將每 300 秒自動在背景刷新圖表)</p>
         </div>
@@ -79,30 +81,6 @@
             <div class="chart-row">
                 <div><iframe src="0700.HK_interactive_1d.html"></iframe></div>
                 <div><iframe src="0700.HK_interactive_15m.html"></iframe></div>
-            </div>
-        </div>
-        
-        <div class="stock-section">
-            <div class="stock-title">3690.HK</div>
-            <div class="chart-row">
-                <div><iframe src="3690.HK_interactive_1d.html"></iframe></div>
-                <div><iframe src="3690.HK_interactive_15m.html"></iframe></div>
-            </div>
-        </div>
-        
-        <div class="stock-section">
-            <div class="stock-title">0992.HK</div>
-            <div class="chart-row">
-                <div><iframe src="0992.HK_interactive_1d.html"></iframe></div>
-                <div><iframe src="0992.HK_interactive_15m.html"></iframe></div>
-            </div>
-        </div>
-        
-        <div class="stock-section">
-            <div class="stock-title">0005.HK</div>
-            <div class="chart-row">
-                <div><iframe src="0005.HK_interactive_1d.html"></iframe></div>
-                <div><iframe src="0005.HK_interactive_15m.html"></iframe></div>
             </div>
         </div>
         
